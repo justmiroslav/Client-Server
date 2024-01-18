@@ -1,60 +1,6 @@
-#include <iostream>
-#include <WinSock2.h>
-#include <string>
-#include <fstream>
+#include "common.h"
 #include <dirent.h>
 #include <sys/stat.h>
-#pragma comment(lib, "ws2_32.lib")
-using namespace std;
-
-enum Commands {
-    GET_ = 1,
-    LIST_ = 2
-};
-
-void sendChunkedData(SOCKET clientSocket, const char* data, int dataSize, int chunkSize) {
-    int totalSent = 0;
-    send(clientSocket, reinterpret_cast<const char*>(&dataSize), sizeof(int), 0);
-    while (totalSent < dataSize) {
-        int remaining = dataSize - totalSent;
-        int currentChunkSize = (remaining < chunkSize) ? remaining : chunkSize;
-        send(clientSocket, reinterpret_cast<const char*>(&currentChunkSize), sizeof(int), 0);
-        send(clientSocket, data + totalSent, currentChunkSize, 0);
-        totalSent += currentChunkSize;
-    }
-}
-
-string receiveChunkedData(SOCKET clientSocket) {
-    int chunkSize, totalSize = 0;
-    string data;
-    recv(clientSocket, reinterpret_cast<char*>(&totalSize), sizeof(int), 0);
-    do {
-        recv(clientSocket, reinterpret_cast<char*>(&chunkSize), sizeof(int), 0);
-        if (chunkSize > 0) {
-            char* buffer = new char[chunkSize + 1];
-            recv(clientSocket, buffer, chunkSize, 0);
-            data.append(buffer, chunkSize);
-            delete[] buffer;
-        }
-    } while (data.size() < totalSize);
-    return data;
-}
-
-void getCommand(SOCKET clientSocket) {
-    string filename = receiveChunkedData(clientSocket);
-    ifstream file(filename);
-    if (!file.is_open()) {
-        sendChunkedData(clientSocket, "File not found", strlen("File not found"), 10);
-    }
-    string data;
-    char character;
-    while (file.get(character)) {
-        data += character;
-    }
-    file.close();
-    sendChunkedData(clientSocket, data.c_str(), data.size(), 1024);
-    cout << "File sent successfully" << endl;
-}
 
 void listCommand(SOCKET clientSocket) {
     string path = receiveChunkedData(clientSocket);
@@ -79,6 +25,37 @@ void listCommand(SOCKET clientSocket) {
     cout << "List sent successfully" << endl;
 }
 
+void putCommand(SOCKET clientSocket) {
+    string filename = receiveChunkedData(clientSocket);
+    sendChunkedData(clientSocket, filename.c_str(), filename.size(), 10);
+    insertFile(clientSocket, "C:/Users/Admin/CLionProjects/Client-Server/Server PC");
+}
+
+void deleteCommand(SOCKET clientSocket) {
+    string filename = receiveChunkedData(clientSocket);
+    if (remove(filename.c_str()) != 0) {
+        sendChunkedData(clientSocket, "File not found", strlen("File not found"), 10);
+        return;
+    }
+    sendChunkedData(clientSocket, "File sent successfully", strlen("File sent successfully"), 10);
+    cout << "File deleted successfully" << endl;
+}
+
+void infoCommand(SOCKET clientSocket) {
+    string filename = receiveChunkedData(clientSocket);
+    struct stat fileInfo;
+    if(stat(filename.c_str(), &fileInfo) != 0) {
+        sendChunkedData(clientSocket, "File not found", strlen("File not found"), 10);
+        return;
+    }
+    size_t pos = filename.find_last_of("/\\");
+    string info = "File: " + filename.substr(pos + 1) + "\n";
+    info += "Size: " + to_string(fileInfo.st_size) + " bytes\n";
+    info += "Last modified: " + string(ctime(&fileInfo.st_mtime));
+    sendChunkedData(clientSocket, info.c_str(), info.size(), 1024);
+    cout << "Info sent successfully" << endl;
+}
+
 int main() {
     WSADATA wsaData;
     WSAStartup(MAKEWORD(2, 2), &wsaData);
@@ -95,15 +72,20 @@ int main() {
     cout << "Client connected." << endl;
     while (true) {
         int command;
-        int recvResult = recv(clientSocket, reinterpret_cast<char*>(&command), sizeof(int), 0);
-        if (recvResult == SOCKET_ERROR || recvResult == 0) {
-            cout << "Client disconnected." << endl;
-            break;
-        }
+        recv(clientSocket, reinterpret_cast<char*>(&command), sizeof(int), 0);
         if (command == GET_) {
-            getCommand(clientSocket);
+            sendFile(clientSocket);
         } else if (command == LIST_) {
             listCommand(clientSocket);
+        } else if (command == PUT_) {
+            putCommand(clientSocket);
+        } else if (command == DELETE_) {
+            deleteCommand(clientSocket);
+        } else if (command == INFO_) {
+            infoCommand(clientSocket);
+        } else if (command == EXIT_) {
+            cout << "Program finished" << endl;
+            break;
         } else {
             cout << "Invalid command." << endl;
         }
