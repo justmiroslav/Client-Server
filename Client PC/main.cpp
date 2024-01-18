@@ -1,36 +1,54 @@
 #include <iostream>
 #include <WinSock2.h>
 #include <Ws2tcpip.h>
-// Linking the library needed for network communication
+#include <string>
 #pragma comment(lib, "ws2_32.lib")
 using namespace std;
 
 enum Commands {
     GET_ = 1,
-    LIST_ = 2,
-    PUT_ = 3,
-    DELETE_ = 4,
-    INFO_ = 5
+    LIST_ = 2
 };
 
 void sendChunkedData(SOCKET clientSocket, const char* data, int dataSize, int chunkSize) {
-    send(clientSocket, reinterpret_cast<const char*>(&dataSize), sizeof(int), 0);
     int totalSent = 0;
+    send(clientSocket, reinterpret_cast<const char*>(&dataSize), sizeof(int), 0);
     while (totalSent < dataSize) {
         int remaining = dataSize - totalSent;
         int currentChunkSize = (remaining < chunkSize) ? remaining : chunkSize;
+        send(clientSocket, reinterpret_cast<const char*>(&currentChunkSize), sizeof(int), 0);
         send(clientSocket, data + totalSent, currentChunkSize, 0);
         totalSent += currentChunkSize;
-        cout << "Sent chunk of size " << currentChunkSize << endl;
     }
 }
 
-int main()
-{
-    // Initialize Winsock
+string receiveChunkedData(SOCKET clientSocket) {
+    int chunkSize, totalSize = 0;
+    string data;
+    recv(clientSocket, reinterpret_cast<char*>(&totalSize), sizeof(int), 0);
+    do {
+        recv(clientSocket, reinterpret_cast<char*>(&chunkSize), sizeof(int), 0);
+        if (chunkSize > 0) {
+            char* buffer = new char[chunkSize + 1];
+            recv(clientSocket, buffer, chunkSize, 0);
+            data.append(buffer, chunkSize);
+            delete[] buffer;
+        }
+    } while (data.size() < totalSize);
+    return data;
+}
+
+void sendPath(SOCKET clientSocket) {
+    string filename;
+    cout << "Enter filename/dirname: " << endl;
+    cin.ignore();
+    getline(cin, filename);
+    sendChunkedData(clientSocket, filename.c_str(), filename.size(), 10);
+}
+
+int main() {
     WSADATA wsaData;
     WSAStartup(MAKEWORD(2, 2), &wsaData);
-    // Client configuration
     int port = 12345;
     const char* serverIp = "127.0.0.1";
     SOCKET clientSocket = socket(AF_INET, SOCK_STREAM, 0);
@@ -38,26 +56,25 @@ int main()
     serverAddr.sin_family = AF_INET;
     serverAddr.sin_port = htons(port);
     serverAddr.sin_addr.s_addr = inet_addr(serverIp);
-    // Connect to the server
     connect(clientSocket, reinterpret_cast<sockaddr*>(&serverAddr), sizeof(serverAddr));
-    // Communication with the server
     while (true) {
         int command;
-        char buffer[1024];
-        memset(buffer, 0, 1024);
-        cout << "Enter the command: " << endl;
+        cout << "Enter command: " << endl;
         cin >> command;
+        send(clientSocket, reinterpret_cast<const char*>(&command), sizeof(int), 0);
         if (command == GET_) {
-            const char* data = "This is a sample data to be sent in chunks. ";
-            int chunkSize = 10;
-            sendChunkedData(clientSocket, data, strlen(data), chunkSize);
-            cout << "All chunks sent to the server." << endl;
+            sendPath(clientSocket);
+            string data = receiveChunkedData(clientSocket);
+            cout << data << endl;
+        } else if (command == LIST_) {
+            sendPath(clientSocket);
+            string data = receiveChunkedData(clientSocket);
+            cout << data << endl;
         } else {
-            cout << "Unexpected command" << endl;
+            cout << "Invalid command." << endl;
             break;
         }
     }
-    // Clean up
     closesocket(clientSocket);
     WSACleanup();
     return 0;
