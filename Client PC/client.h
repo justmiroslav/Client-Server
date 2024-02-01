@@ -21,7 +21,8 @@ public:
     void processCommands() const {
         int clientNumber;
         recv(clientSocket, reinterpret_cast<char*>(&clientNumber), sizeof(int), 0);
-        CommonCode commonCode(clientSocket, connectionFolder + "/Connection" + to_string(clientNumber) + "/Server", connectionFolder + "/Connection" + to_string(clientNumber) + "/Client");
+        string connectionPath = connectionFolder + "/Connection" + to_string(clientNumber);
+        CommonCode commonCode(clientSocket, connectionPath, clientNumber);
         while (true) {
             int command;
             cout << "Enter command (GET->1;LIST->2;PUT->3;DELETE->4;INFO->5;EXIT->6): " << endl;
@@ -68,5 +69,5 @@ private:
     SOCKET clientSocket;
     const char* serverIp = "127.0.0.1";
     int port = 12345;
-    string connectionFolder = "C:/Users/Admin/OneDrive/Робочий стіл/Client-Server";
+    string connectionFolder = "C:/Users/Admin/CLionProjects/ClientServerDb";
 };

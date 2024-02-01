@@ -35,30 +35,30 @@ public:
 
     void handleClient(SOCKET clientSocket, int clientNumber) {
         cout << "Client" << clientNumber << " is connected" << endl;
-        fs::create_directories(connectionFolder + "/Connection" + to_string(clientNumber));
-        fs::create_directories(connectionFolder + "/Connection" + to_string(clientNumber) + "/Server");
-        fs::create_directories(connectionFolder + "/Connection" + to_string(clientNumber) + "/Client");
-        fs::copy(serverFolder + "/fileOne.txt", connectionFolder + "/Connection" + to_string(clientNumber) + "/Server/fileOne.txt", fs::copy_options::overwrite_existing);
-        fs::copy(serverFolder + "/fileTwo.txt", connectionFolder + "/Connection" + to_string(clientNumber) + "/Server/fileTwo.txt", fs::copy_options::overwrite_existing);
-        fs::copy(clientFolder + "/fileThree.txt", connectionFolder + "/Connection" + to_string(clientNumber) + "/Client/fileThree.txt", fs::copy_options::overwrite_existing);
-        processCommands(clientSocket, clientNumber);
-        fs::remove_all(connectionFolder + "/Connection" + to_string(clientNumber));
+        string connectionPath = connectionFolder + "/Connection" + to_string(clientNumber);
+        fs::create_directory(connectionPath);
+        fs::create_directory(connectionPath + "/Server");
+        fs::create_directory(connectionPath + "/Client");
+        fs::copy(serverFolder + "/fileOne.txt", connectionPath + "/Server/fileOne.txt", fs::copy_options::overwrite_existing);
+        fs::copy(serverFolder + "/fileTwo.txt", connectionPath + "/Server/fileTwo.txt", fs::copy_options::overwrite_existing);
+        fs::copy(clientFolder + "/fileThree.txt", connectionPath + "/Client/fileThree.txt", fs::copy_options::overwrite_existing);
+        processCommands(clientSocket, clientNumber, connectionPath);
+        fs::remove_all(connectionPath);
         closesocket(clientSocket);
     }
 
-     void processCommands(SOCKET clientSocket, int clientNumber) {
+     static void processCommands(SOCKET clientSocket, int clientNumber, const string& connectionPath) {
         send(clientSocket, reinterpret_cast<const char*>(&clientNumber), sizeof(int), 0);
-        CommonCode commonCode(clientSocket, connectionFolder + "/Connection" + to_string(clientNumber) + "/Server", connectionFolder + "/Connection" + to_string(clientNumber) + "/Client");
+        CommonCode commonCode(clientSocket, connectionPath, clientNumber);
         while (true) {
             int command;
             recv(clientSocket, reinterpret_cast<char*>(&command), sizeof(int), 0);
             if (command == GET_) {
                 commonCode.sendFile(true);
-                cout << "Client" << clientNumber << ": File sent successfully" << endl;
             } else if (command == LIST_) {
                 listCommand(commonCode, clientNumber);
             } else if (command == PUT_) {
-                putCommand(commonCode, clientNumber);
+                putCommand(commonCode);
             } else if (command == DELETE_) {
                 deleteCommand(commonCode, clientNumber);
             } else if (command == INFO_) {
@@ -95,11 +95,10 @@ public:
         cout << "Client" << clientNumber << ": List sent successfully" << endl;
     }
 
-    static void putCommand(CommonCode& commonCode, int clientNumber) {
+    static void putCommand(CommonCode& commonCode) {
         string filename = commonCode.receiveChunkedData();
         commonCode.sendChunkedData(filename.c_str(), filename.size(), 10);
         commonCode.insertFile(true);
-        cout << "Client" << clientNumber << ": File received successfully" << endl;
     }
 
     static void deleteCommand(CommonCode& commonCode, int clientNumber) {
@@ -108,7 +107,7 @@ public:
             commonCode.sendChunkedData("File not found", strlen("File not found"), 10);
             return;
         }
-        commonCode.sendChunkedData("File sent successfully", strlen("File sent successfully"), 10);
+        commonCode.sendChunkedData("File deleted successfully", strlen("File deleted successfully"), 10);
         cout << "Client" << clientNumber << ": File deleted successfully" << endl;
     }
 
@@ -132,5 +131,5 @@ private:
     int cNumber = 0;
     string serverFolder = "C:/Users/Admin/CLionProjects/Client-Server/Server PC";
     string clientFolder = "C:/Users/Admin/CLionProjects/Client-Server/Client PC";
-    string connectionFolder = "C:/Users/Admin/OneDrive/Робочий стіл/Client-Server";
+    string connectionFolder = "C:/Users/Admin/CLionProjects/ClientServerDb";
 };

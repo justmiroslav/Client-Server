@@ -18,7 +18,7 @@ enum Commands {
 class CommonCode {
 
 public:
-    CommonCode(SOCKET clientSocket, const string& serverFolder, const string& clientFolder) : clientSocket(clientSocket), serverFolder(serverFolder), clientFolder(clientFolder) {}
+    CommonCode(SOCKET clientSocket, const string& connectionPath, int clientNumber) : clientSocket(clientSocket), connectionPath(connectionPath), clientNumber(clientNumber) {}
 
     void sendChunkedData(const char* data, int dataSize, int chunkSize) const {
         int totalSent = 0;
@@ -51,10 +51,9 @@ public:
     void sendFile(bool server) const {
         string filename = receiveChunkedData();
         sendChunkedData(filename.c_str(), filename.size(), 10);
-        ifstream file(server ? serverFolder + "/" + filename : clientFolder + "/" + filename);
+        ifstream file(server ? connectionPath + "/Server/" + filename : connectionPath + "/Client/" + filename);
         if (!file.is_open()) {
-            string data = "File not found";
-            sendChunkedData(data.c_str(), data.size(), 10);
+            sendChunkedData("File not found", strlen("File not found"), 10);
             return;
         }
         string data;
@@ -64,6 +63,7 @@ public:
         }
         file.close();
         sendChunkedData(data.c_str(), data.size(), 1024);
+        cout << (server ? "Server" : "Client" + to_string(clientNumber)) << ": File sent successfully" << endl;
     }
 
     void insertFile(bool server) const {
@@ -73,13 +73,14 @@ public:
             cout << "Invalid data" << endl;
             return;
         }
-        ofstream file(server ? serverFolder + "/" + filename : clientFolder + "/" + filename);
+        ofstream file(server ? connectionPath + "/Server/" + filename : connectionPath + "/Client/" + filename);
         file << data;
         file.close();
+        cout << (server ? "Server" : "Client" + to_string(clientNumber)) << ": File received successfully" << endl;
     }
 
 private:
     SOCKET clientSocket;
-    const string& serverFolder;
-    const string& clientFolder;
+    const string& connectionPath;
+    int clientNumber;
 };
