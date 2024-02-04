@@ -10,11 +10,11 @@ class Server {
 public:
     void runServer();
     void handleClient(SOCKET clientSocket, int clientNumber);
-    void processCommands(SOCKET clientSocket, int clientNumber, const string& connectionPath);
-    void listCommand(CommonCode& commonCode, int clientNumber);
-    void putCommand(CommonCode& commonCode, const string& clientFolder);
-    void deleteCommand(CommonCode& commonCode, int clientNumber);
-    void infoCommand(CommonCode&  commonCode, int clientNumber);
+    static void processCommands(SOCKET clientSocket, int clientNumber, const string& connectionPath);
+    static void listCommand(CommonCode& commonCode, int clientNumber);
+    static void putCommand(CommonCode& commonCode, const string& clientFolder);
+    static void deleteCommand(CommonCode& commonCode, int clientNumber);
+    static void infoCommand(CommonCode&  commonCode, int clientNumber);
 
 private:
     int port = 12345;

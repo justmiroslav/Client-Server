@@ -6,8 +6,8 @@ class Client {
 public:
     void runClient();
     void processCommands();
-    void sendPath(CommonCode& commonCode);
-    void getResponse(CommonCode& commonCode);
+    static void sendPath(CommonCode& commonCode);
+    static void getResponse(CommonCode& commonCode);
 
 private:
     SOCKET clientSocket;
