@@ -1,15 +1,15 @@
 #include "common.h"
 
-CommonCode::CommonCode(SOCKET clientSocket, const string& connectionPath, int clientNumber) : clientSocket(clientSocket), connectionPath(connectionPath), clientNumber(clientNumber) {}
+CommonCode::CommonCode(SOCKET clientSocket, const string& connectionPath, int clientNumber) : s(clientSocket), connectionPath(connectionPath), clientNumber(clientNumber) {}
 
 void CommonCode::sendChunkedData(const char* data, int dataSize, int chunkSize) const {
     int totalSent = 0;
-    send(clientSocket, reinterpret_cast<const char*>(&dataSize), sizeof(int), 0);
+    send(s, reinterpret_cast<const char*>(&dataSize), sizeof(int), 0);
     while (totalSent < dataSize) {
         int remaining = dataSize - totalSent;
         int currentChunkSize = (remaining < chunkSize) ? remaining : chunkSize;
-        send(clientSocket, reinterpret_cast<const char*>(&currentChunkSize), sizeof(int), 0);
-        send(clientSocket, data + totalSent, currentChunkSize, 0);
+        send(s, reinterpret_cast<const char*>(&currentChunkSize), sizeof(int), 0);
+        send(s, data + totalSent, currentChunkSize, 0);
         totalSent += currentChunkSize;
     }
 }
@@ -17,12 +17,12 @@ void CommonCode::sendChunkedData(const char* data, int dataSize, int chunkSize) 
 string CommonCode::receiveChunkedData() const {
     int chunkSize, totalSize = 0;
     string data;
-    recv(clientSocket, reinterpret_cast<char*>(&totalSize), sizeof(int), 0);
+    recv(s, reinterpret_cast<char*>(&totalSize), sizeof(int), 0);
     do {
-        recv(clientSocket, reinterpret_cast<char*>(&chunkSize), sizeof(int), 0);
+        recv(s, reinterpret_cast<char*>(&chunkSize), sizeof(int), 0);
         if (chunkSize > 0) {
             char* buffer = new char[chunkSize + 1];
-            recv(clientSocket, buffer, chunkSize, 0);
+            recv(s, buffer, chunkSize, 0);
             data.append(buffer, chunkSize);
             delete[] buffer;
         }

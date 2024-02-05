@@ -25,7 +25,7 @@ public:
     void insertFile(bool server, const string& clientFolder) const;
 
 private:
-    SOCKET clientSocket;
+    SOCKET s;
     const string& connectionPath;
     int clientNumber;
 };
